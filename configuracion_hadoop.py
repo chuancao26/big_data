@@ -2,13 +2,14 @@ import json
 import paramiko
 import time
 import io
+import concurrent.futures # <-- NUEVA LIBRERÍA PARA PARALELISMO
 
 # --- CONFIGURACIÓN BASE ---
 KEY_PATH = 'labsuser.pem' 
 SSH_USER = 'ubuntu'
-HADOOP_URL = 'https://archive.apache.org/dist/hadoop/common/hadoop-3.3.6/hadoop-3.3.6.tar.gz'
+HADOOP_URL = 'https://dlcdn.apache.org/hadoop/common/hadoop-3.3.6/hadoop-3.3.6.tar.gz'
 HADOOP_HOME = '/home/ubuntu/hadoop'
-JAVA_HOME = '/usr/lib/jvm/java-8-openjdk-amd64' # Ruta por defecto de Java 8 en Ubuntu
+JAVA_HOME = '/usr/lib/jvm/java-8-openjdk-amd64'
 
 def ejecutar_comando(ssh, comando, ignorar_errores=False):
     stdin, stdout, stderr = ssh.exec_command(comando)
@@ -20,11 +21,56 @@ def ejecutar_comando(ssh, comando, ignorar_errores=False):
 
 def subir_archivo(ssh, contenido, ruta_remota):
     sftp = ssh.open_sftp()
-    # Creamos un archivo temporal en memoria y lo subimos
     archivo_memoria = io.BytesIO(contenido.encode('utf-8'))
     sftp.putfo(archivo_memoria, ruta_remota)
     sftp.close()
 
+# --- NUEVA FUNCIÓN QUE SE EJECUTARÁ EN PARALELO ---
+def preparar_nodo(maquina):
+    ip = maquina['ip']
+    rol = maquina['rol']
+    
+    print(f"[{rol}] Iniciando conexión SSH a {ip}...")
+    llave = paramiko.RSAKey.from_private_key_file(KEY_PATH)
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    
+    for reintento in range(3):
+        try:
+            ssh.connect(hostname=ip, username=SSH_USER, pkey=llave)
+            break
+        except Exception as e:
+            print(f"[{rol}] Reintentando conexión en 10s... ({e})")
+            time.sleep(10)
+            
+    print(f"[{rol}] Instalando Java y descargando Hadoop...")
+    cmds_base = f"""
+    export DEBIAN_FRONTEND=noninteractive
+    sudo -E apt-get update -y
+    sudo -E apt-get install -y openjdk-8-jdk
+    
+    if [ ! -d "{HADOOP_HOME}" ]; then
+        wget --timeout=30 -q {HADOOP_URL} -O hadoop.tar.gz
+        tar -xzf hadoop.tar.gz
+        mv hadoop-3.3.6 {HADOOP_HOME}
+        rm hadoop.tar.gz
+    fi
+    """
+    ejecutar_comando(ssh, cmds_base)
+
+    print(f"[{rol}] Configurando variables de entorno (.bashrc)...")
+    vars_entorno = f"""
+    echo 'export JAVA_HOME={JAVA_HOME}' >> ~/.bashrc
+    echo 'export HADOOP_HOME={HADOOP_HOME}' >> ~/.bashrc
+    echo 'export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin' >> ~/.bashrc
+    sed -i 's|# export JAVA_HOME=.*|export JAVA_HOME={JAVA_HOME}|' {HADOOP_HOME}/etc/hadoop/hadoop-env.sh
+    """
+    ejecutar_comando(ssh, vars_entorno)
+    
+    print(f"[{rol}] ✅ Instalación base completada.")
+    return ip, ssh # Devolvemos la IP y la sesión SSH abierta
+
+# --- FLUJO PRINCIPAL ---
 def configurar_cluster():
     print("Leyendo IPs del cluster...")
     try:
@@ -38,51 +84,19 @@ def configurar_cluster():
     master_priv = ips['master']['ip_privada']
     esclavos = ips['esclavos']
     
-    todas_las_maquinas = [{'ip': master_pub, 'rol': 'Master'}] + [{'ip': e['ip_publica'], 'rol': 'Esclavo'} for e in esclavos]
+    todas_las_maquinas = [{'ip': master_pub, 'rol': 'Master'}] + [{'ip': e['ip_publica'], 'rol': f"Esclavo"} for e in esclavos]
 
-    # --- 1. INSTALACIÓN BASE EN TODAS LAS MÁQUINAS ---
     clientes_ssh = {}
-    llave = paramiko.RSAKey.from_private_key_file(KEY_PATH)
 
-    for maquina in todas_las_maquinas:
-        ip = maquina['ip']
-        print(f"\n--- Conectando a {maquina['rol']} ({ip}) ---")
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    # --- 1. INSTALACIÓN BASE 
+    print("\n--- INICIANDO INSTALACIÓN) ---")
+    
+    # max_workers=6 para que procese todo el cluster en un solo paso
+    with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+        resultados = executor.map(preparar_nodo, todas_las_maquinas)
         
-        # Intentamos conectar (con reintentos por si la máquina recién encendió)
-        for reintento in range(3):
-            try:
-                ssh.connect(hostname=ip, username=SSH_USER, pkey=llave)
-                break
-            except Exception as e:
-                print(f"Reintentando conexión en 10s... ({e})")
-                time.sleep(10)
-        
-        clientes_ssh[ip] = ssh
-
-        print("Instalando Java 8 y descargando Hadoop (Esto tomará un par de minutos)...")
-        cmds_base = f"""
-        sudo apt-get update -y > /dev/null
-        sudo apt-get install openjdk-8-jdk -y > /dev/null
-        if [ ! -d "{HADOOP_HOME}" ]; then
-            wget -q {HADOOP_URL} -O hadoop.tar.gz
-            tar -xzf hadoop.tar.gz
-            mv hadoop-3.3.6 {HADOOP_HOME}
-            rm hadoop.tar.gz
-        fi
-        """
-        ejecutar_comando(ssh, cmds_base)
-
-        print("Configurando variables de entorno (.bashrc y hadoop-env.sh)...")
-        vars_entorno = f"""
-        echo 'export JAVA_HOME={JAVA_HOME}' >> ~/.bashrc
-        echo 'export HADOOP_HOME={HADOOP_HOME}' >> ~/.bashrc
-        echo 'export PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin' >> ~/.bashrc
-        sed -i 's|# export JAVA_HOME=.*|export JAVA_HOME={JAVA_HOME}|' {HADOOP_HOME}/etc/hadoop/hadoop-env.sh
-        """
-        ejecutar_comando(ssh, vars_entorno)
-
+        for ip, ssh in resultados:
+            clientes_ssh[ip] = ssh
     # --- 2. CONFIGURACIÓN DE LOS ARCHIVOS XML DE HADOOP ---
     print("\n--- Generando e inyectando archivos XML de configuración ---")
     
@@ -112,10 +126,9 @@ def configurar_cluster():
             <name>yarn.nodemanager.aux-services</name>
             <value>mapreduce_shuffle</value>
         </property>
-        <!-- Configuraciones para aprovechar la RAM de t2.medium -->
         <property>
             <name>yarn.nodemanager.resource.memory-mb</name>
-            <value>3072</value> <!-- Dejamos 1GB para el SO y asignamos 3GB a YARN -->
+            <value>3072</value>
         </property>
         <property>
             <name>yarn.scheduler.maximum-allocation-mb</name>
@@ -133,7 +146,6 @@ def configurar_cluster():
             <name>mapreduce.framework.name</name>
             <value>yarn</value>
         </property>
-        <!-- Ajustes de memoria por tarea -->
         <property>
             <name>mapreduce.map.memory.mb</name>
             <value>1024</value>
@@ -155,10 +167,9 @@ def configurar_cluster():
             <value>HADOOP_MAPRED_HOME={HADOOP_HOME}</value>
         </property>
     </configuration>"""
-    # Crear lista de workers para el Master
+    
     workers_list = "\n".join([e['ip_privada'] for e in esclavos])
 
-    # Enviar los archivos a TODAS las máquinas
     for ip, ssh in clientes_ssh.items():
         base_xml_path = f"{HADOOP_HOME}/etc/hadoop/"
         subir_archivo(ssh, core_site, base_xml_path + 'core-site.xml')
@@ -171,12 +182,9 @@ def configurar_cluster():
     print("\n--- Configurando SSH sin contraseña desde el Master a los Esclavos ---")
     ssh_master = clientes_ssh[master_pub]
     
-    # Generar llave pública en el Master usando el algoritmo ed25519
     ejecutar_comando(ssh_master, 'ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519', ignorar_errores=True)
     llave_pub_master = ejecutar_comando(ssh_master, 'cat ~/.ssh/id_ed25519.pub')
 
-    # Copiar la llave a todos los nodos (incluido el mismo Master)
-    # y desactivar la validación estricta de host para evitar el prompt (yes/no)
     for ip, ssh in clientes_ssh.items():
         subir_archivo(ssh, llave_pub_master, '/tmp/master_key.pub')
         ejecutar_comando(ssh, 'cat /tmp/master_key.pub >> ~/.ssh/authorized_keys')
@@ -192,7 +200,6 @@ def configurar_cluster():
     ejecutar_comando(ssh_master, f'source ~/.bashrc && {HADOOP_HOME}/sbin/start-dfs.sh')
     ejecutar_comando(ssh_master, f'source ~/.bashrc && {HADOOP_HOME}/sbin/start-yarn.sh')
 
-    # Cerrar conexiones
     for ssh in clientes_ssh.values():
         ssh.close()
 
