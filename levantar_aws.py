@@ -35,6 +35,7 @@ def crear_infraestructura():
             ]
         )
 
+        # Regla 2: Permitir tráfico web a las interfaces de Hadoop (9870 y 8088)
         ec2_client.authorize_security_group_ingress(
             GroupId=sg_id,
             IpPermissions=[
@@ -42,9 +43,8 @@ def crear_infraestructura():
                 {'IpProtocol': 'tcp', 'FromPort': 8088, 'ToPort': 8088, 'IpRanges': [{'CidrIp': '0.0.0.0/0'}]}
             ]
         )
-
         
-        # Regla 2: Permitir TODO el tráfico interno entre las máquinas de este mismo Security Group
+        # Regla 3: Permitir TODO el tráfico interno entre las máquinas de este mismo Security Group
         ec2_client.authorize_security_group_ingress(
             GroupId=sg_id,
             IpPermissions=[
@@ -73,17 +73,27 @@ def crear_infraestructura():
     ami_id = ami_response['Parameter']['Value']
 
     # ---------------------------------------------------------
-    # 3. LANZAR LAS INSTANCIAS (4 Máquinas)
+    # 3. LANZAR LAS INSTANCIAS (6 Máquinas con 25 GB de Disco)
     # ---------------------------------------------------------
-    print("Lanzando 4 instancias EC2...")
+    print("Lanzando 6 instancias EC2 con 25 GB de almacenamiento cada una...")
     instances = ec2_resource.create_instances(
         ImageId=ami_id,
-        MinCount=4,
-        MaxCount=4,
+        MinCount=6,  # <--- CAMBIAR A 6
+        MaxCount=6,  # <--- CAMBIAR A 6
         InstanceType=INSTANCE_TYPE,
         KeyName=KEY_NAME,
         SecurityGroupIds=[sg_id],
         IamInstanceProfile={'Name': IAM_PROFILE},
+        BlockDeviceMappings=[
+            {
+                'DeviceName': '/dev/sda1',
+                'Ebs': {
+                    'VolumeSize': 25, 
+                    'VolumeType': 'gp2',
+                    'DeleteOnTermination': True
+                }
+            }
+        ],
         TagSpecifications=[
             {
                 'ResourceType': 'instance',
@@ -91,7 +101,6 @@ def crear_infraestructura():
             }
         ]
     )
-
     # ---------------------------------------------------------
     # 4. ESPERAR Y ETIQUETAR (MASTER VS ESCLAVOS)
     # ---------------------------------------------------------
