@@ -14,9 +14,7 @@ def crear_infraestructura():
     ec2_client = boto3.client('ec2', region_name=REGION)
     ec2_resource = boto3.resource('ec2', region_name=REGION)
 
-    # ---------------------------------------------------------
     # 1. CREAR EL SECURITY GROUP
-    # ---------------------------------------------------------
     sg_name = 'hadoop-cluster-sg'
     
     try:
@@ -62,24 +60,19 @@ def crear_infraestructura():
         else:
             raise e
 
-    # ---------------------------------------------------------
-    # 2. OBTENER LA IMAGEN (AMI) DE UBUNTU 22.04
-    # ---------------------------------------------------------
-    # Usamos SSM Parameter Store para obtener siempre la última versión de Ubuntu 22.04
+    # 2. OBTENER  UBUNTU 22.04
     ssm_client = boto3.client('ssm', region_name=REGION)
     ami_response = ssm_client.get_parameter(
         Name='/aws/service/canonical/ubuntu/server/22.04/stable/current/amd64/hvm/ebs-gp2/ami-id'
     )
     ami_id = ami_response['Parameter']['Value']
 
-    # ---------------------------------------------------------
-    # 3. LANZAR LAS INSTANCIAS (6 Máquinas con 25 GB de Disco)
-    # ---------------------------------------------------------
-    print("Lanzando 6 instancias EC2 con 25 GB de almacenamiento cada una...")
+    # 3. LANZAR LAS INSTANCIAS (6 Máquinas )
+    print("Lanzando 6 instancias EC2")
     instances = ec2_resource.create_instances(
         ImageId=ami_id,
-        MinCount=6,  # <--- CAMBIAR A 6
-        MaxCount=6,  # <--- CAMBIAR A 6
+        MinCount=6,  
+        MaxCount=6, 
         InstanceType=INSTANCE_TYPE,
         KeyName=KEY_NAME,
         SecurityGroupIds=[sg_id],
@@ -88,7 +81,7 @@ def crear_infraestructura():
             {
                 'DeviceName': '/dev/sda1',
                 'Ebs': {
-                    'VolumeSize': 25, 
+                    'VolumeSize': 15, 
                     'VolumeType': 'gp2',
                     'DeleteOnTermination': True
                 }
@@ -101,9 +94,7 @@ def crear_infraestructura():
             }
         ]
     )
-    # ---------------------------------------------------------
-    # 4. ESPERAR Y ETIQUETAR (MASTER VS ESCLAVOS)
-    # ---------------------------------------------------------
+    # 4. ESPERAR Y ETIQUETAR
     print("Esperando a que las instancias estén en estado 'running' (esto toma un minuto)...")
     
     # Creamos un diccionario para guardar las IPs
@@ -133,9 +124,7 @@ def crear_infraestructura():
             cluster_ips['esclavos'].append(datos_instancia)
             print(f"[ESCLAVO] IP Pública: {instance.public_ip_address} | IP Privada: {instance.private_ip_address}")
 
-    # ---------------------------------------------------------
     # 5. GUARDAR LAS IPS EN UN ARCHIVO JSON
-    # ---------------------------------------------------------
     with open('cluster_ips.json', 'w') as f:
         json.dump(cluster_ips, f, indent=4)
         

@@ -4,12 +4,35 @@ import time
 import sys
 
 if len(sys.argv) != 3:
-    print("Uso correcto: python scraper_distribuido.py <inicio> <fin>")
-    print("Ejemplo: python scraper_distribuido.py 1 22500")
+    print("Uso correcto: python scraper_distribuido.py <indice_inicio> <indice_fin>")
     sys.exit(1)
 
-INICIO = int(sys.argv[1])
-FIN = int(sys.argv[2])
+INICIO_IDX = int(sys.argv[1])
+FIN_IDX = int(sys.argv[2])
+
+# 1. GENERAMOS LA LISTA MAESTRA
+# Rango 1: de 000001 a 088064
+mesas_rango_1 = [str(i).zfill(6) for i in range(1, 88065)]
+# Rango 2: de 900000 a 905000
+mesas_rango_2 = [str(i).zfill(6) for i in range(900000, 905001)]
+
+# Juntamos ambas listas. El elemento después del 088064 será el 900000
+lista_completa_mesas = mesas_rango_1 + mesas_rango_2
+
+# 2. EXTRAEMOS SOLO EL PEDAZO (SLICE) ASIGNADO A ESTE NODO
+mesas_a_procesar = lista_completa_mesas[INICIO_IDX:FIN_IDX]
+
+# Si por alguna razón la lista llega vacía, salimos
+if not mesas_a_procesar:
+    print("No hay mesas asignadas a este rango de índices. Saliendo...")
+    sys.exit(0)
+
+# Obtenemos la primera y última mesa real para nombrar los archivos
+primera_mesa = mesas_a_procesar[0]
+ultima_mesa = mesas_a_procesar[-1]
+
+ARCHIVO_JSONL = f"onpe_mesas_{primera_mesa}_a_{ultima_mesa}.jsonl"
+ARCHIVO_FALTANTES = f"mesas_no_existentes_{primera_mesa}_a_{ultima_mesa}.txt"
 
 API_URL = "https://resultadoelectoral.onpe.gob.pe/presentacion-backend/actas/buscar/mesa"
 HEADERS = {
@@ -24,23 +47,18 @@ HEADERS = {
     "Sec-Fetch-Site": "same-origin",
 }
 
-# 1. NOMBRES DE ARCHIVOS DINÁMICOS
-ARCHIVO_JSONL = f"onpe_rango_{INICIO}_a_{FIN}.jsonl"
-ARCHIVO_FALTANTES = f"mesas_no_existentes_{INICIO}_a_{FIN}.txt"
 DELAY_PETICION = 0.2 
-
 session = requests.Session()
 session.headers.update(HEADERS)
 mesas_guardadas = 0
 
-print(f"🚀 Iniciando rango desde {INICIO} hasta {FIN}...")
+print(f" Iniciando extracción de {len(mesas_a_procesar)} mesas (Desde {primera_mesa} hasta {ultima_mesa})...")
 
-# 2. ABRIMOS AMBOS ARCHIVOS AL MISMO TIEMPO
 with open(ARCHIVO_JSONL, mode='w', encoding='utf-8') as archivo, \
      open(ARCHIVO_FALTANTES, mode='w', encoding='utf-8') as faltantes:
     
-    for mesa_actual in range(INICIO, FIN + 1):
-        codigo_mesa = str(mesa_actual).zfill(6)
+    # 3. ITERAMOS DIRECTAMENTE SOBRE LOS CÓDIGOS DE MESA
+    for codigo_mesa in mesas_a_procesar:
         params = {"codigoMesa": codigo_mesa}
         
         exito_red = False
@@ -52,9 +70,9 @@ with open(ARCHIVO_JSONL, mode='w', encoding='utf-8') as archivo, \
             except requests.exceptions.RequestException:
                 time.sleep(2)
                 
-        # Si falló la red o dio error 500/404, anotamos la mesa como no procesada/existente
+        # Si falló la red o dio error HTTP, anotamos en faltantes
         if not exito_red or response.status_code != 200:
-            print(f"⚠️ Error en mesa {codigo_mesa}. Registrando como no existente...")
+            print(f" Error en red o servidor para mesa {codigo_mesa}.")
             faltantes.write(codigo_mesa + '\n')
             faltantes.flush()
             continue
@@ -62,35 +80,32 @@ with open(ARCHIVO_JSONL, mode='w', encoding='utf-8') as archivo, \
         try:
             json_data = response.json()
         except ValueError:
-            # Si la respuesta no es un JSON válido, también la mandamos a faltantes
+            # Si el JSON está corrupto o vacío
             faltantes.write(codigo_mesa + '\n')
             faltantes.flush()
             continue
             
-        # 3. GUARDAMOS TODAS LAS ELECCIONES DE LA MESA (Si success es True)
+        # 4. GUARDAMOS LOS DATOS SI EXISTEN
         if json_data.get('success') == True and len(json_data.get('data', [])) > 0:
-            
-            # Recorremos cada una de las opciones (Presidencial, Senadores, Diputados...)
             for acta_data in json_data['data']:
                 linea_json = json.dumps(acta_data, ensure_ascii=False)
                 archivo.write(linea_json + '\n')
             
-            # Flush periódico
+            # Flush periódico para asegurar guardado en disco
             if mesas_guardadas % 50 == 0:
                 archivo.flush() 
             
             mesas_guardadas += 1
             
             if mesas_guardadas % 500 == 0:
-                print(f"✅ Nodo actual: {mesas_guardadas} mesas procesadas exitosamente...")
+                print(f"Progreso: {mesas_guardadas} mesas guardadas...")
                 
         else:
-            # 4. LA MESA NO EXISTE (Ej. success = False o data = [])
             faltantes.write(codigo_mesa + '\n')
             faltantes.flush()
             
         time.sleep(DELAY_PETICION)
 
-print("\n🎉 ¡EXTRACCIÓN FINALIZADA PARA ESTE NODO!")
-print(f"💾 Se procesaron {mesas_guardadas} mesas válidas en {ARCHIVO_JSONL}")
-print(f"📋 Las mesas no encontradas se guardaron en {ARCHIVO_FALTANTES}")
+print("\n ¡EXTRACCIÓN FINALIZADA PARA ESTE NODO!")
+print(f" Se guardó información de {mesas_guardadas} mesas en {ARCHIVO_JSONL}")
+print(f" Las mesas no encontradas se anotaron en {ARCHIVO_FALTANTES}")

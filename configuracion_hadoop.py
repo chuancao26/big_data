@@ -2,9 +2,9 @@ import json
 import paramiko
 import time
 import io
-import concurrent.futures # <-- NUEVA LIBRERÍA PARA PARALELISMO
+import concurrent.futures
 
-# --- CONFIGURACIÓN BASE ---
+#CONFIGURACIÓN BASE
 KEY_PATH = 'labsuser.pem' 
 SSH_USER = 'ubuntu'
 HADOOP_URL = 'https://dlcdn.apache.org/hadoop/common/hadoop-3.3.6/hadoop-3.3.6.tar.gz'
@@ -25,7 +25,7 @@ def subir_archivo(ssh, contenido, ruta_remota):
     sftp.putfo(archivo_memoria, ruta_remota)
     sftp.close()
 
-# --- NUEVA FUNCIÓN QUE SE EJECUTARÁ EN PARALELO ---
+# funcion paralela
 def preparar_nodo(maquina):
     ip = maquina['ip']
     rol = maquina['rol']
@@ -68,9 +68,9 @@ def preparar_nodo(maquina):
     ejecutar_comando(ssh, vars_entorno)
     
     print(f"[{rol}] ✅ Instalación base completada.")
-    return ip, ssh # Devolvemos la IP y la sesión SSH abierta
+    return ip, ssh 
 
-# --- FLUJO PRINCIPAL ---
+#FLUJO PRINCIPAL
 def configurar_cluster():
     print("Leyendo IPs del cluster...")
     try:
@@ -88,10 +88,8 @@ def configurar_cluster():
 
     clientes_ssh = {}
 
-    # --- 1. INSTALACIÓN BASE 
     print("\n--- INICIANDO INSTALACIÓN) ---")
     
-    # max_workers=6 para que procese todo el cluster en un solo paso
     with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
         resultados = executor.map(preparar_nodo, todas_las_maquinas)
         
@@ -178,7 +176,7 @@ def configurar_cluster():
         subir_archivo(ssh, mapred_site, base_xml_path + 'mapred-site.xml')
         subir_archivo(ssh, workers_list, base_xml_path + 'workers')
 
-    # --- 3. EL PUENTE SSH (MASTER -> ESCLAVOS) ---
+    # 3. EL PUENTE SSH (MASTER -> ESCLAVOS)
     print("\n--- Configurando SSH sin contraseña desde el Master a los Esclavos ---")
     ssh_master = clientes_ssh[master_pub]
     
@@ -191,7 +189,7 @@ def configurar_cluster():
         ejecutar_comando(ssh, 'echo "StrictHostKeyChecking no" >> ~/.ssh/config')
         ejecutar_comando(ssh, 'chmod 600 ~/.ssh/config')
 
-    # --- 4. FORMATEO Y ARRANQUE (SÓLO EN EL MASTER) ---
+    # 4. FORMATEO Y ARRANQUE 
     print("\n--- Iniciando el Clúster de Hadoop ---")
     print("Formateando el NameNode...")
     ejecutar_comando(ssh_master, f'source ~/.bashrc && {HADOOP_HOME}/bin/hdfs namenode -format -force')
@@ -203,11 +201,8 @@ def configurar_cluster():
     for ssh in clientes_ssh.values():
         ssh.close()
 
-    print("\n=======================================================")
     print("¡CLÚSTER CONFIGURADO Y CORRIENDO EXITOSAMENTE!")
-    print(f"IP Pública del Master para que te conectes: {master_pub}")
-    print("Para ver el estado, conéctate por SSH al master y ejecuta: jps")
-    print("=======================================================")
+    print(f"IP Pública del Master: {master_pub}")
 
 if __name__ == '__main__':
     configurar_cluster()

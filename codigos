@@ -1,0 +1,43 @@
+ creamos carpeta compartida 
+ hdfs dfs -mkdir -p /onpe/raw
+
+ mandando los datos del master al hdfs
+/home/ubuntu/hadoop/bin/hdfs dfs -put /home/ubuntu/onpe_*.jsonl /onpe/raw/
+
+mandar atodos los workers
+for ip in $(cat /home/ubuntu/hadoop/etc/hadoop/workers); do
+    echo "--- Subiendo datos desde el nodo: $ip ---"
+    ssh -o StrictHostKeyChecking=no $ip "/home/ubuntu/hadoop/bin/hdfs dfs -put /home/ubuntu/onpe_*.jsonl /onpe/raw/"
+done
+
+#limpiar lso datos 
+/home/ubuntu/hadoop/bin/hdfs dfs -rm -r -f /onpe/resultados_partidos
+
+lanzar el job
+/home/ubuntu/hadoop/bin/hadoop jar /home/ubuntu/hadoop/share/hadoop/tools/lib/hadoop-streaming-3.3.6.jar \
+-file /home/ubuntu/mapper.py \
+-file /home/ubuntu/reducer.py \
+-input /onpe/raw/onpe_*.jsonl \
+-output /onpe/resultados_partidos \
+-mapper "python3 mapper.py" \
+-reducer "python3 reducer.py"
+
+verificar
+/home/ubuntu/hadoop/bin/hdfs dfs -ls -h /onpe/raw/
+
+
+
+prendido de 0
+# 1. Asegurarnos de que todo esté detenido
+/home/ubuntu/hadoop/sbin/stop-yarn.sh
+/home/ubuntu/hadoop/sbin/stop-dfs.sh
+
+# 2. Formatear el NameNode (Escribe 'Y' mayúscula si te pregunta si estás seguro)
+/home/ubuntu/hadoop/bin/hdfs namenode -format
+
+# 3. Volver a encender todo
+/home/ubuntu/hadoop/sbin/start-dfs.sh
+/home/ubuntu/hadoop/sbin/start-yarn.sh
+
+# 4. Crear la carpeta base de nuevo
+/home/ubuntu/hadoop/bin/hdfs dfs -mkdir -p /onpe/input_tsv

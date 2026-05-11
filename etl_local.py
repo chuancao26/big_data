@@ -7,13 +7,13 @@ import os
 archivos_jsonl = glob.glob("onpe_rango_*.jsonl")
 
 if not archivos_jsonl:
-    print("❌ No se encontró ningún archivo .jsonl en este nodo.")
+    print("No se encontró ningún archivo .jsonl en este nodo.")
     sys.exit(1)
 
 archivo_entrada = archivos_jsonl[0]
 archivo_salida = archivo_entrada.replace(".jsonl", ".tsv")
 
-print(f"🚀 Iniciando transformación a formato OLAP: {archivo_entrada} -> {archivo_salida}")
+print(f"Iniciando transformación a formato OLAP: {archivo_entrada} -> {archivo_salida}")
 
 mesas_procesadas = 0
 registros_tsv = 0
@@ -29,7 +29,7 @@ with open(archivo_entrada, 'r', encoding='utf-8') as f_in, \
         try:
             acta = json.loads(linea)
             
-            # --- 1. EXTRACCIÓN DE DATOS DE LA MESA (DIMENSIONES) ---
+            # 1. EXTRACCIÓN DE DATOS DE LA MESA 
             mesa = acta.get('codigoMesa', 'UNKNOWN')
             idEleccion = str(acta.get('idEleccion', ''))
             idAmbito = str(acta.get('idAmbitoGeografico', ''))
@@ -60,21 +60,23 @@ with open(archivo_entrada, 'r', encoding='utf-8') as f_in, \
                 
                 votos = item.get('adVotos')
                 
-                # Verificamos que haya un nombre válido y que los votos sean un número
-                if partido and isinstance(votos, int):
+                # Novedad: Si hay partido, procesamos la fila sí o sí
+                if partido:
+                    # Si los votos son nulos (None) o no son un número, forzamos un 0
+                    votos_limpios = votos if isinstance(votos, int) else 0
                     
                     # FORMATO ESTRICTO: 11 columnas separadas por tabulador (\t)
-                    fila_tsv = f"{mesa}\t{idEleccion}\t{idAmbito}\t{idUbigeo}\t{estadoActa}\t{electores}\t{asistentes}\t{emitidos}\t{validos}\t{partido}\t{votos}\n"
+                    fila_tsv = f"{mesa}\t{idEleccion}\t{idAmbito}\t{idUbigeo}\t{estadoActa}\t{electores}\t{asistentes}\t{emitidos}\t{validos}\t{partido}\t{votos_limpios}\n"
                     
                     f_out.write(fila_tsv)
                     registros_tsv += 1
-            
+
             mesas_procesadas += 1
             if mesas_procesadas % 10000 == 0:
-                print(f"⏳ Progreso: {mesas_procesadas} actas convertidas...")
+                print(f"Progreso: {mesas_procesadas} actas convertidas...")
                 
         except Exception as e:
             # Si una línea está totalmente corrupta, la saltamos para que el ETL no se detenga
             pass
 
-print(f"✅ ¡ETL completado! Se generaron {registros_tsv} filas en {archivo_salida}")
+print(f"¡ETL completado! Se generaron {registros_tsv} filas en {archivo_salida}")
