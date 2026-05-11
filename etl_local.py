@@ -4,7 +4,7 @@ import sys
 import os
 
 # 1. Buscar automáticamente el archivo JSONL en la máquina actual
-archivos_jsonl = glob.glob("onpe_rango_*.jsonl")
+archivos_jsonl = glob.glob("/home/ubuntu/onpe_mesas_*.jsonl")
 
 if not archivos_jsonl:
     print("No se encontró ningún archivo .jsonl en este nodo.")

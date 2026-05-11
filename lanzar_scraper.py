@@ -63,4 +63,4 @@ def lanzar_scraping():
 
 if __name__ == '__main__':
     lanzar_scraping()
-    print("\n🎬 Todos los nodos han sido orquestados.")
+    print("\nTodos los nodos han sido orquestados.")

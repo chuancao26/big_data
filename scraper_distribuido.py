@@ -10,19 +10,15 @@ if len(sys.argv) != 3:
 INICIO_IDX = int(sys.argv[1])
 FIN_IDX = int(sys.argv[2])
 
-# 1. GENERAMOS LA LISTA MAESTRA
 # Rango 1: de 000001 a 088064
 mesas_rango_1 = [str(i).zfill(6) for i in range(1, 88065)]
 # Rango 2: de 900000 a 905000
 mesas_rango_2 = [str(i).zfill(6) for i in range(900000, 905001)]
 
-# Juntamos ambas listas. El elemento después del 088064 será el 900000
 lista_completa_mesas = mesas_rango_1 + mesas_rango_2
 
-# 2. EXTRAEMOS SOLO EL PEDAZO (SLICE) ASIGNADO A ESTE NODO
 mesas_a_procesar = lista_completa_mesas[INICIO_IDX:FIN_IDX]
 
-# Si por alguna razón la lista llega vacía, salimos
 if not mesas_a_procesar:
     print("No hay mesas asignadas a este rango de índices. Saliendo...")
     sys.exit(0)

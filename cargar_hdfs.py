@@ -14,7 +14,7 @@ def subir_a_hdfs(ip, i):
         ssh.connect(hostname=ip, username=SSH_USER, pkey=llave, timeout=15)
         
         # El comando que empuja los TSV locales al HDFS
-        comando_hdfs = "/home/ubuntu/hadoop/bin/hdfs dfs -put -f /home/ubuntu/*.jsonl /onpe/input_jsonl/" 
+        comando_hdfs = "/home/ubuntu/hadoop/bin/hdfs dfs -put /home/ubuntu/*.tsv /onpe_input/"
         print(f"[{rol}] Subiendo TSVs al HDFS...")
         stdin, stdout, stderr = ssh.exec_command(comando_hdfs)
         
