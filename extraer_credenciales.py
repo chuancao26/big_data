@@ -1,4 +1,4 @@
-archivo_entrada = "credenciales"
+archivo_entrada = "credenciales.txt"
 archivo_salida = "aws_exports.sh"
 
 try:

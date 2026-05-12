@@ -1,0 +1,5 @@
+credenciales.txt
+labsuser.pem
+aws_exports.sh
+cluster_ips.json
+venv/

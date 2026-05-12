@@ -68,11 +68,11 @@ def crear_infraestructura():
     ami_id = ami_response['Parameter']['Value']
 
     # 3. LANZAR LAS INSTANCIAS (6 Máquinas )
-    print("Lanzando 6 instancias EC2")
+    print("Lanzando 4 instancias EC2")
     instances = ec2_resource.create_instances(
         ImageId=ami_id,
-        MinCount=6,  
-        MaxCount=6, 
+        MinCount=4,  
+        MaxCount=4, 
         InstanceType=INSTANCE_TYPE,
         KeyName=KEY_NAME,
         SecurityGroupIds=[sg_id],
@@ -81,7 +81,7 @@ def crear_infraestructura():
             {
                 'DeviceName': '/dev/sda1',
                 'Ebs': {
-                    'VolumeSize': 15, 
+                    'VolumeSize': 10, 
                     'VolumeType': 'gp2',
                     'DeleteOnTermination': True
                 }
