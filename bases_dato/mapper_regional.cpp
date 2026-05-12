@@ -22,31 +22,27 @@ int main() {
             columns.push_back(token);
         }
         
-        // Validar que tengamos la estructura completa
-        if (columns.size() >= 11) {
+        // Validar que tengamos la estructura de 14 columnas
+        if (columns.size() >= 14) {
             string idEleccion = columns[1];
             string idAmbito = columns[2];  // 1=Nacional, 2=Internacional
-            string idUbigeo = columns[3];
-            string partido = columns[9];
-            string votos = columns[10];
+            string departamento = columns[4]; // Usamos la nueva columna de departamento directo
+            string partido = columns[12];
+            string votos = columns[13];
             
             // Ignorar cabeceras o registros corruptos
-            if (partido.empty() || idEleccion.empty() || idEleccion == "idEleccion" || idUbigeo.empty() || idUbigeo == "idUbigeo") continue;
+            if (partido.empty() || idEleccion.empty() || idEleccion == "idEleccion" || departamento.empty()) continue;
 
-            // --- NUEVA LÓGICA DE UBIGEO ---
-            // Rellenar con ceros a la izquierda si tiene menos de 6 caracteres
-            if (idUbigeo.length() > 0 && idUbigeo.length() < 6) {
-                idUbigeo = string(6 - idUbigeo.length(), '0') + idUbigeo;
-            }
+            // Decodificar el tipo de elección
+            string nombreEleccion = idEleccion;
+            if (idEleccion == "10") nombreEleccion = "PRESIDENCIAL";
+            else if (idEleccion == "14") nombreEleccion = "DIPUTADOS";
+            else if (idEleccion == "12") nombreEleccion = "SEN_NACIONALES";
+            else if (idEleccion == "13") nombreEleccion = "SEN_REGIONALES";
+            else if (idEleccion == "15") nombreEleccion = "PARLAMENTO";
 
-            // Ahora es seguro extraer los primeros 2 dígitos
-            string region = "00";
-            if (idUbigeo.length() >= 2) {
-                region = idUbigeo.substr(0, 2);
-            }
-
-            // NUEVA CLAVE COMPUESTA: idEleccion|idAmbito|Region|Partido
-            cout << idEleccion << "|" << idAmbito << "|" << region << "|" << partido << "\t" << votos << "\n";
+            // NUEVA CLAVE COMPUESTA: idEleccion|idAmbito|departamento|partido
+            cout << nombreEleccion << "|" << idAmbito << "|" << departamento << "|" << partido << "\t" << votos << "\n";
         }
     }
     return 0;

@@ -23,16 +23,17 @@ int main() {
         }
         
         // Validar que tengamos la estructura completa de nuestro ETL
-        if (columns.size() >= 11) {
+        if (columns.size() >= 14) {
             string idEleccion = columns[1];
-            string partido = columns[9];
-            string votos = columns[10];
+            string idAmbito = columns[2];
+            string partido = columns[12];
+            string votos = columns[13];
             
             // Ignorar cabeceras o registros vacios
             if (partido.empty() || idEleccion.empty() || idEleccion == "idEleccion") continue;
 
-            // NUEVA CLAVE COMPUESTA: idEleccion|partido
-            cout << idEleccion << "|" << partido << "\t" << votos << "\n";
+            // NUEVA CLAVE COMPUESTA: idEleccion|idAmbito|partido
+            cout << idEleccion << "|" << idAmbito << "|" << partido << "\t" << votos << "\n";
         }
     }
     return 0;

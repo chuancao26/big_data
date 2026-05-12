@@ -81,7 +81,7 @@ def crear_infraestructura():
             {
                 'DeviceName': '/dev/sda1',
                 'Ebs': {
-                    'VolumeSize': 10, 
+                    'VolumeSize': 15, 
                     'VolumeType': 'gp2',
                     'DeleteOnTermination': True
                 }

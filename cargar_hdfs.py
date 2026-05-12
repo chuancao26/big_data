@@ -13,20 +13,20 @@ def subir_a_hdfs(ip, i):
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(hostname=ip, username=SSH_USER, pkey=llave, timeout=15)
         
-        # El comando que empuja los TSV locales al HDFS
-        comando_hdfs = "/home/ubuntu/hadoop/bin/hdfs dfs -put /home/ubuntu/*.tsv /onpe_input/"
+        # El comando que empuja los TSV.GZ locales al HDFS
+        comando_hdfs = "/home/ubuntu/hadoop/bin/hdfs dfs -put -f /home/ubuntu/*.tsv.gz /onpe_input/"
         print(f"[{rol}] Subiendo TSVs al HDFS...")
         stdin, stdout, stderr = ssh.exec_command(comando_hdfs)
         
         # Esperamos a que termine de subir
+        stdout.channel.recv_exit_status()  # Bloquear hasta que termine
         errores = stderr.read().decode('utf-8').strip()
         
-        # hdfs dfs -put lanza advertencias si el archivo ya existe, lo filtramos
         if errores and "File exists" not in errores:
             return f"[{rol}] ⚠️ Advertencia/Error: {errores}"
         
         ssh.close()
-        return f"[{rol}] TSVs subidos exitosamente al HDFS."
+        return f"[{rol}] ✅ TSVs.gz subidos exitosamente al HDFS."
         
     except Exception as e:
         return f"[{rol}] Error: {str(e)}"

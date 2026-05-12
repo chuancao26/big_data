@@ -3,3 +3,6 @@ labsuser.pem
 aws_exports.sh
 cluster_ips.json
 venv/
+instrucciones_hadoop.txt
+bases_dato/mapper*.cpp
+bases_dato/reducer*.cpp

@@ -25,9 +25,10 @@ def ejecutar_en_nodo(ip, rol, llave):
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(hostname=ip, username=SSH_USER, pkey=llave, timeout=15)
         
-        # 1. Subir el script ETL al nodo
+        # 1. Subir el script ETL y el diccionario al nodo
         sftp = ssh.open_sftp()
         sftp.put(SCRIPT_ETL, f'/home/ubuntu/{SCRIPT_ETL}')
+        sftp.put('diccionario_ubigeos.json', '/home/ubuntu/diccionario_ubigeos.json')
         sftp.close()
         
         # 2. Ejecutar el script y esperar el resultado

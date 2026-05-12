@@ -23,12 +23,13 @@ int main() {
             columns.push_back(token);
         }
         
-        // Validar que la fila tenga las 11 columnas
-        if (columns.size() >= 11) {
+        // Validar que la fila tenga las 14 columnas
+        if (columns.size() >= 14) {
             string idEleccion = columns[1];
             string idUbigeo = columns[3];
-            string partido = columns[9];
-            string votos = columns[10];
+            string estadoComputo = columns[7]; // Ajustado al índice 7
+            string partido = columns[12];      // Movido al índice 12
+            string votos = columns[13];        // Movido al índice 13
             
             // Ignorar cabeceras o registros corruptos
             if (idUbigeo == "idUbigeo" || idUbigeo.empty() || partido.empty() || idEleccion.empty()) continue;
