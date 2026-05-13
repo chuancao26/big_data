@@ -57,7 +57,7 @@ def orquestar_etl_paralelo():
     maquinas_ips = [ips['master']['ip_publica']] + [e['ip_publica'] for e in ips['esclavos']]
     llave = paramiko.RSAKey.from_private_key_file(KEY_PATH)
 
-    print(f"\n⚡ Iniciando procesamiento ETL en paralelo en {len(maquinas_ips)} nodos...")
+    print(f"\nIniciando procesamiento ETL en paralelo en {len(maquinas_ips)} nodos...")
     inicio = time.time()
 
     # Usamos ThreadPoolExecutor para lanzar las tareas al mismo tiempo
@@ -78,15 +78,15 @@ def orquestar_etl_paralelo():
             print(f"\n[ {res['rol']} ] ({res['ip']}) - Tarea finalizada:")
             
             if res['excepcion']:
-                print(f"   ❌ Error conectando/ejecutando: {res['excepcion']}")
+                print(f"  Error conectando/ejecutando: {res['excepcion']}")
             else:
                 if res['salida']:
-                    print("   ✅ Log del nodo:\n      " + res['salida'].replace('\n', '\n      '))
+                    print("   Log del nodo:\n      " + res['salida'].replace('\n', '\n      '))
                 if res['errores']:
-                    print("   ⚠️ Posibles advertencias:\n      " + res['errores'].replace('\n', '\n      '))
+                    print("   Posibles advertencias:\n      " + res['errores'].replace('\n', '\n      '))
 
     fin = time.time()
-    print(f"\n🎉 Proceso finalizado en todos los nodos en {fin - inicio:.2f} segundos. Archivos TSV creados.")
+    print(f"\n Proceso finalizado en todos los nodos en {fin - inicio:.2f} segundos. Archivos TSV creados.")
 
 if __name__ == '__main__':
     orquestar_etl_paralelo()

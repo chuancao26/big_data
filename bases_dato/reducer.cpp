@@ -4,7 +4,6 @@
 
 using namespace std;
 
-// Funcion para cambiar los pipes '|' por tabuladores '\t' para el TSV final
 string formatearClave(string key) {
     replace(key.begin(), key.end(), '|', '\t');
     return key;
@@ -29,7 +28,7 @@ int main() {
         try {
             votos = stoll(str_votos);
         } catch (...) {
-            continue; // Ignorar si no es un numero
+            continue; 
         }
 
         // Lógica de agrupacion de Hadoop

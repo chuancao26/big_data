@@ -23,7 +23,7 @@ def subir_a_hdfs(ip, i):
         
         # hdfs dfs -put lanza advertencias si el archivo ya existe, lo filtramos
         if errores and "File exists" not in errores:
-            return f"[{rol}] ⚠️ Advertencia/Error: {errores}"
+            return f"[{rol}]  Advertencia/Error: {errores}"
         
         ssh.close()
         return f"[{rol}] TSVs subidos exitosamente al HDFS."
@@ -37,7 +37,7 @@ def orquestar_carga():
 
     maquinas = [ips['master']['ip_publica']] + [e['ip_publica'] for e in ips['esclavos']]
     
-    print("\nIniciando carga distribuida al HDFS")
+    print("\nIniciando carga al HDFS")
     
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(maquinas)) as executor:
         tareas = [executor.submit(subir_a_hdfs, ip, i) for i, ip in enumerate(maquinas)]
@@ -45,7 +45,7 @@ def orquestar_carga():
         for futuro in concurrent.futures.as_completed(tareas):
             print(futuro.result())
 
-    print("\n ¡Listo todo en HDFS!")
+    print("\n Finalizado")
 
 if __name__ == '__main__':
     orquestar_carga()

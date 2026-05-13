@@ -40,4 +40,92 @@ prendido de 0
 /home/ubuntu/hadoop/sbin/start-yarn.sh
 
 # 4. Crear la carpeta base de nuevo
-/home/ubuntu/hadoop/bin/hdfs dfs -mkdir -p /onpe/input_tsv
+hdfs dfs -mkdir -p /onpe_input
+
+
+final 1:
+
+hdfs dfs -mkdir -p /onpe_input
+
+python cargar_hdfs.py
+  hdfs dfs -put /home/ubuntu/*.tsv /onpe_input/
+
+archivos mapper y reducer
+
+Distrital
+
+hadoop jar /home/ubuntu/hadoop/share/hadoop/tools/lib/hadoop-streaming-3.3.6.jar \
+       -D mapreduce.job.name="Agrupacion_Votos_Distrital" \
+       -file mapper_distrital \
+       -mapper ./mapper_distrital \
+       -file reducer \
+       -reducer ./reducer \
+       -input /onpe_input \
+       -output /onpe_output_distrital
+
+Nacional
+hadoop jar /home/ubuntu/hadoop/share/hadoop/tools/lib/hadoop-streaming-3.3.6.jar \
+       -D mapreduce.job.name="Agrupacion_Votos_Nacional" \
+       -file mapper_nacional \
+       -mapper ./mapper_nacional \
+       -file reducer \
+       -reducer ./reducer \
+       -input /onpe_input \
+       -output /onpe_output_nacional
+
+regional
+hadoop jar /home/ubuntu/hadoop/share/hadoop/tools/lib/hadoop-streaming-3.3.6.jar \
+       -D mapreduce.job.name="Agrupacion_Votos_Regional" \
+       -file mapper_regional \
+       -mapper ./mapper_regional \
+       -file reducer \
+       -reducer ./reducer \
+       -input /onpe_input \
+       -output /onpe_output_regional 
+
+profincias
+hadoop jar /home/ubuntu/hadoop/share/hadoop/tools/lib/hadoop-streaming-3.3.6.jar \
+       -D mapreduce.job.name="Agrupacion_Votos_Provincial" \
+       -file mapper_provincia \
+       -mapper ./mapper_provincia \
+       -file reducer \
+       -reducer ./reducer \
+       -input /onpe_input \
+       -output /onpe_output_provincia
+
+nacional ambito:
+hadoop jar /home/ubuntu/hadoop/share/hadoop/tools/lib/hadoop-streaming-3.3.6.jar \
+    -D mapreduce.job.name="Agrupacion_Votos_Nacional_Ambito" \
+    -file mapper_nacional_ambito \
+    -mapper ./mapper_nacional_ambito \
+    -file reducer \
+    -reducer ./reducer \
+    -input /onpe_input \
+    -output /onpe_output_nacional_ambito
+
+actas contabilizadas
+hadoop jar /home/ubuntu/hadoop/share/hadoop/tools/lib/hadoop-streaming-3.3.6.jar \
+    -D mapreduce.job.name="Conteo_Estado_Actas" \
+    -file mapper_estado \
+    -mapper ./mapper_estado \
+    -file reducer_estado \
+    -reducer ./reducer_estado \
+    -input /onpe_input \
+    -output /onpe_output_estado
+
+
+ver los primeros 20
+hdfs dfs -cat /onpe_output_distrital/part-* | head -n 20
+
+merge de los archivos 
+
+hdfs dfs -getmerge /onpe_output_distrital ./resultados_distritales.tsv
+hdfs dfs -getmerge /onpe_output_provincia ./resultados_provincias.tsv
+hdfs dfs -getmerge /onpe_output_regional ./resultados_regional.tsv
+hdfs dfs -getmerge /onpe_output_nacional ./resultados_nacional.tsv
+hdfs dfs -getmerge /onpe_output_estado ./resultados_estado.tsv
+
+
+copiarlos al local
+
+scp -i labsuser.pem ubuntu@IP_DEL_MASTER:/home/ubuntu/resultados_distritales.tsv .
