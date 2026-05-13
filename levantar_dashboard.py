@@ -95,7 +95,14 @@ def lanzar_instancia(ec2_resource, ami_id, sg_id, nombre_tag, user_data):
     )
     instance = instances[0]
     print(f"  ⏳ Esperando a que '{nombre_tag}' esté en estado 'running'...")
-    instance.wait_until_running()
+    try:
+        instance.wait_until_running()
+    except Exception as e:
+        print(f"  ❌ La instancia '{nombre_tag}' terminó en estado anómalo.")
+        print(f"     Causa: {e}")
+        print(f"  💡 Probable causa: Límite de instancias de AWS Academy alcanzado.")
+        print(f"     Espera unos minutos o termina otras instancias y vuelve a ejecutar.")
+        raise
     instance.reload()
     print(f"  ✅ '{nombre_tag}' lista | IP Pública: {instance.public_ip_address} | IP Privada: {instance.private_ip_address}")
     return instance
@@ -137,24 +144,44 @@ def crear_infraestructura_dashboard():
         ]
     )
 
-    # 3. Lanzar la BD primero (la Web la necesita conocer)
-    instancia_db  = lanzar_instancia(ec2_resource, ami_id, sg_db_id,  'Maquina-Postgres',   USER_DATA_DB)
-    instancia_web = lanzar_instancia(ec2_resource, ami_id, sg_web_id, 'Maquina-Web-FastAPI', USER_DATA_WEB)
+    # 3. Verificar si ya existe un dashboard_ips.json con la DB creada
+    dashboard_ips = {}
+    try:
+        with open('dashboard_ips.json', 'r') as f:
+            dashboard_ips = json.load(f)
+            if 'db' in dashboard_ips:
+                print(f"\n  ♻️  La Máquina-Postgres ya existe en dashboard_ips.json, reutilizando...")
+                instancia_db = None
+    except FileNotFoundError:
+        pass
 
-    # 4. Guardar las IPs en un archivo JSON
-    dashboard_ips = {
-        'web': {
-            'id': instancia_web.id,
-            'ip_publica':  instancia_web.public_ip_address,
-            'ip_privada':  instancia_web.private_ip_address,
-        },
-        'db': {
+    # 4. Lanzar la BD (si no existe ya)
+    if 'db' not in dashboard_ips:
+        instancia_db = lanzar_instancia(ec2_resource, ami_id, sg_db_id, 'Maquina-Postgres', USER_DATA_DB)
+        dashboard_ips['db'] = {
             'id': instancia_db.id,
             'ip_publica':  instancia_db.public_ip_address,
             'ip_privada':  instancia_db.private_ip_address,
         }
-    }
+        # Guardamos inmediatamente para no perder la IP si la Web falla
+        with open('dashboard_ips.json', 'w') as f:
+            json.dump(dashboard_ips, f, indent=4)
+        print(f"  💾 IP de la BD guardada en dashboard_ips.json (por seguridad)")
 
+    ip_db_privada = dashboard_ips['db']['ip_privada']
+
+    # 5. Lanzar la Web (si no existe ya)
+    if 'web' not in dashboard_ips:
+        instancia_web = lanzar_instancia(ec2_resource, ami_id, sg_web_id, 'Maquina-Web-FastAPI', USER_DATA_WEB)
+        dashboard_ips['web'] = {
+            'id': instancia_web.id,
+            'ip_publica':  instancia_web.public_ip_address,
+            'ip_privada':  instancia_web.private_ip_address,
+        }
+    else:
+        print(f"\n  ♻️  La Máquina-Web ya existe en dashboard_ips.json, reutilizando...")
+
+    # 6. Guardar el archivo final completo
     with open('dashboard_ips.json', 'w') as f:
         json.dump(dashboard_ips, f, indent=4)
 

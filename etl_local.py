@@ -2,7 +2,6 @@ import json
 import glob
 import sys
 import os
-import gzip
 
 # Cargar el diccionario de ubigeos para tener los nombres reales
 try:
@@ -21,13 +20,13 @@ if not archivos_jsonl:
 archivo_entrada = archivos_jsonl[0]
 archivo_salida = archivo_entrada.replace(".jsonl", ".tsv")
 
-print(f"Iniciando transformación a formato OLAP: {archivo_entrada} -> {archivo_salida}.gz")
+print(f"Iniciando transformación a formato OLAP: {archivo_entrada} -> {archivo_salida}")
 
 mesas_procesadas = 0
 registros_tsv = 0
 
 with open(archivo_entrada, 'r', encoding='utf-8') as f_in, \
-     gzip.open(archivo_salida + '.gz', 'wt', encoding='utf-8') as f_out:
+     open(archivo_salida, 'w', encoding='utf-8') as f_out:
     
     for linea in f_in:
         linea = linea.strip()
